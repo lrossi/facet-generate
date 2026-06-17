@@ -8,7 +8,10 @@
 //! The entry point is [`split`](crate::generation::module::split), which returns a `BTreeMap<Module, Registry>`
 //! — one entry per namespace, ordered by module name.
 
-use std::{cmp::Ordering, collections::BTreeMap};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashSet},
+};
 
 use crate::{
     Registry,
@@ -118,9 +121,20 @@ pub fn split(root: &str, registry: &Registry) -> BTreeMap<Module, Registry> {
             .with_external_definitions(all_external_definitions);
         let module = Module(config);
 
+        // Keep track of what types are in the root namespace
+        let root_names: HashSet<String> = types
+            .iter()
+            .filter(|(name, _)| name.namespace == Namespace::Root)
+            .map(|(name, _)| name.name.clone())
+            .collect();
+
         // Add all types to this module's registry
         let mut module_registry = Registry::new();
         for (name, format) in types {
+            if name.namespace != Namespace::Root && root_names.contains(&name.name) {
+                // Skip namespaced types that are also in the root namespace (otherwise they would be emitted twice)
+                continue;
+            }
             module_registry.insert(name, format);
         }
 

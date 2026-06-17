@@ -492,3 +492,86 @@ fn same_namespace_with_external_dependency_bug_regression() {
     }
     "#);
 }
+
+#[test]
+fn type_in_both_root_and_named_namespace_is_emitted_only_once() {
+    #[derive(Facet)]
+    struct Component {
+        value: String,
+    }
+
+    #[derive(Facet)]
+    #[facet(fg::namespace = "Container")]
+    struct Container {
+        component: Component,
+    }
+
+    let registry = reflect!(Container, Component).unwrap();
+
+    let registries = split("Container", &registry);
+
+    insta::assert_debug_snapshot!(registries, @r#"
+    {
+        Module(
+            CodeGeneratorConfig {
+                module_name: "Container",
+                external_definitions: {},
+                external_packages: {},
+                comments: {},
+                package_manifest: true,
+                features: {},
+                indent: Space(
+                    4,
+                ),
+                used_format_types: {},
+                referenced_namespaces: {},
+                unit_variant_enums: {},
+            },
+        ): {
+            QualifiedTypeName {
+                namespace: Root,
+                name: "Component",
+            }: Struct(
+                [
+                    Named {
+                        name: "value",
+                        doc: Doc(
+                            [],
+                        ),
+                        value: Str,
+                    },
+                ],
+                Doc(
+                    [],
+                ),
+            ),
+            QualifiedTypeName {
+                namespace: Named(
+                    "Container",
+                ),
+                name: "Container",
+            }: Struct(
+                [
+                    Named {
+                        name: "component",
+                        doc: Doc(
+                            [],
+                        ),
+                        value: TypeName(
+                            QualifiedTypeName {
+                                namespace: Named(
+                                    "Container",
+                                ),
+                                name: "Component",
+                            },
+                        ),
+                    },
+                ],
+                Doc(
+                    [],
+                ),
+            ),
+        },
+    }
+    "#)
+}
